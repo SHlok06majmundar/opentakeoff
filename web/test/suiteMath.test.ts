@@ -22,6 +22,27 @@ test("parsePitch reads what roof plans print and refuses the rest", () => {
   assert.equal(parsePitch(-2), null);
 });
 
+test("parsePitch reads percent, degree and rise:run slopes (#618)", () => {
+  near(parsePitch("2%")!, 0.24, 1e-12);              // 2 rise per 100 run → 2 × 12 / 100 = 0.24 per 12
+  near(parsePitch("0.5 %")!, 0.06, 1e-12);           // 0.5 × 12 / 100
+  near(parsePitch("22.5 deg")!, 4.971, 0.0005);      // 12 × tan 22.5° = 12 × 0.414214 = 4.9706
+  near(parsePitch("22.5°")!, 4.971, 0.0005);
+  near(parsePitch("45 degrees")!, 12, 1e-9);         // tan 45° = 1 → 12 in 12
+  near(parsePitch("1:48")!, 0.25, 1e-12);            // 1 rise per 48 run → 12 / 48
+  near(parsePitch("1/4:12")!, 0.25, 1e-12);          // a quarter inch in 12
+  near(parsePitch("1 : 24")!, 0.5, 1e-12);           // 12 / 24
+  // Forms that read today keep their meaning.
+  assert.equal(parsePitch("2"), 2);                  // bare number is still rise per 12, never percent
+  assert.equal(parsePitch("4:12"), 4);
+  assert.equal(parsePitch(0), 0);
+  // Still refused: no slope on the drawings is not a guess.
+  assert.equal(parsePitch("flat"), null);
+  assert.equal(parsePitch("1:0"), null);             // zero run
+  assert.equal(parsePitch("90 deg"), null);          // vertical
+  assert.equal(parsePitch("%"), null);
+  assert.equal(parsePitch("500%"), null);            // 60 per 12, past the 48 ceiling
+});
+
 test("slope and hip factors", () => {
   near(slopeFactor(6), Math.sqrt(1.25), 1e-9);        // 1.1180
   near(hipValleyFactor(6), Math.sqrt(1.125), 1e-9);    // 1.0607

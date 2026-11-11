@@ -61,7 +61,11 @@ export function bbox(pts: Pt[]): { x0: number; y0: number; x1: number; y1: numbe
 
 /**
  * A roof pitch as rise per 12 of run. Accepts 6, "6", "6/12", "6:12",
- * "6 in 12", and a low-slope "1/4 per ft" / "1/4\" per foot" (= 0.25/12).
+ * "6 in 12", a low-slope "1/4 per ft" / "1/4\" per foot" (= 0.25/12),
+ * a percent "2%" (2 per 100 = 0.24/12), an angle "22.5 deg" / "22.5°"
+ * (12 × tan), and a rise:run ratio "1:48" / "1/4:12" (= 0.25/12).
+ * A bare number keeps meaning rise per 12. "flat" stays refused: pass 0 on
+ * purpose when that is what the drawings say.
  * Returns null for anything it cannot read — never a guess.
  */
 export function parsePitch(raw: unknown): number | null {
@@ -76,8 +80,21 @@ export function parsePitch(raw: unknown): number | null {
   if (m) return parsePitch(Number(m[1]));
   m = s.match(/^\d+(?:\.\d+)?$/);
   if (m) return parsePitch(Number(s));
+  m = s.match(/^(\d+(?:\.\d+)?)\s*%$/);
+  if (m) return parsePitch((Number(m[1]) * 12) / 100);                         // percent = rise per 100 of run
+  m = s.match(/^(\d+(?:\.\d+)?)\s*(?:°|deg|degs|degrees?)$/);
+  if (m && Number(m[1]) < 90) return parsePitch(12 * Math.tan((Number(m[1]) * Math.PI) / 180));
+  m = s.match(/^(\d+(?:\.\d+)?)(?:\s*\/\s*(\d+(?:\.\d+)?))?\s*:\s*(\d+(?:\.\d+)?)$/);
+  if (m) {                                                                       // rise:run, rise may be a fraction ("1/4:12")
+    const rise = m[2] === undefined ? Number(m[1]) : Number(m[1]) / Number(m[2]);
+    const run = Number(m[3]);
+    if (run > 0 && Number.isFinite(rise)) return parsePitch((rise * 12) / run);
+  }
   return null;
 }
+
+/** Every pitch form parsePitch reads, for refusal messages. */
+export const PITCH_FORMS = '"6/12", "6:12", "6 in 12", 6, "1/4 per ft", "2%", "22.5 deg", "1:48" or "1/4:12"';
 
 /** Sloped length ÷ plan length for a line running straight up the slope (rakes, and the roof area). */
 export const slopeFactor = (risePer12: number) => Math.sqrt(1 + (risePer12 / 12) ** 2);

@@ -125,6 +125,13 @@ test("roof_takeoff: a 40 × 25 gable at 6/12 — true totals, accessories, idemp
   const refused = await call(client, "roof_takeoff", { pitch: "steep" });
   assert.equal(refused.isError, true);
   assert.match(refused.data.error, /Cannot read pitch/);
+  assert.match(refused.data.error, /"2%".*"22\.5 deg".*"1:48"/);   // the refusal lists every form it reads (#618)
+  const flat = await call(client, "roof_takeoff", { pitch: "flat", apply: false });
+  assert.equal(flat.isError, true);                   // flat stays refused: pass 0 on purpose
+
+  const low = await call(client, "roof_takeoff", { pitch: "2%", apply: false });
+  assert.equal(low.isError, false, JSON.stringify(low.data));
+  near(low.data.sloped_sf, 1000.2);                   // 1000 × sqrt(1 + (0.24/12)²) = 1000 × 1.0002
 
   const r = await call(client, "roof_takeoff", { pitch: "6/12", ice_water: { eave_ft: 3 } });
   assert.equal(r.isError, false, JSON.stringify(r.data));
